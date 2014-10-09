@@ -1,12 +1,12 @@
 object tutorial2 {
-  println("Welcome to the Scala worksheet")       //> Welcome to the Scala worksheet
+  println("Welcome to the Scalasnnn worksheet")       //> Welcome to the Scala worksheet
 
   ////////////////
   // 1. Classes //
   ////////////////
 
   // The following definition (single line!) introduces:
-  // - new type Rational
+  // - new type Rationals
   // - object constructor Rational(x: Int, y: Int)
   // - two fields: numer: Int, denom: Int
   {
