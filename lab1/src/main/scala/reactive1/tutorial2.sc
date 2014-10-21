@@ -1,5 +1,5 @@
 object tutorial2 {
-  println("Welcome to the Scalasnnn worksheet")       //> Welcome to the Scala worksheet
+  println("Welcome to the Scala worksheet")       //> Welcome to the Scala worksheet
 
   ////////////////
   // 1. Classes //
