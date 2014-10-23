@@ -64,7 +64,6 @@ class AuctionActor(auctionId:Int) extends Actor with FSM[AuctionState,AuctionDat
       goto(Ignored) using stateData
     }
     case Event(bid(price,buyer),AuctionDataBundle(value,bidTime,deleteTime)) => {
-      log.info(s"dupa $price")
       if (price > value && price > 0) {
         log.info(AUCTION_ACTIVATE)
     	goto(Activated) using AuctionBuyerBundle(buyer,price,deleteTime)
