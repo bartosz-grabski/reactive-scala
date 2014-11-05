@@ -10,6 +10,10 @@ import messages.startAuctionSystem
 import actors.BuyerActor
 import messages.startAuction
 import messages.startBidding
+import actors.SellerActor
+import actors.AuctionSearch
+import messages.startRegistering
+import messages.startRegistering
 
 class AuctionManager extends Actor with FSM[AuctionManagerState, AuctionManagerData] with ActorLogging {
   
@@ -25,16 +29,23 @@ class AuctionManager extends Actor with FSM[AuctionManagerState, AuctionManagerD
     
   private val DEFAULT_AUCTION_DURATION_SEC = 20
   private val DEFAULT_DELETE_DURATION_SEC = 5
-  private val DEFAULT_AUCTION_VALUE = 120
-  
+  private val DEFAULT_AUCTION_VALUE = 120 
 
-  private def createAuctionActors(numberOfAuctions : Int) : List[ActorRef] = {
-    return (0 to numberOfAuctions-1).map(num => context.actorOf(Props(new AuctionActor(num)),AUCTION_ACTOR_PREFIX+num)).toList
+  private def createSellersActors() : List[ActorRef] = {
+     val seller1 = context.actorOf(Props(classOf[SellerActor],"Seller1",Array("Audi_A6","Mercedes_Benz","Golf")))
+     val seller2 = context.actorOf(Props(classOf[SellerActor],"Seller2",Array("Lenovo_T410","Macbook_Air")))
+     seller1 ! startRegistering()
+     seller2 ! startRegistering()
+     List(seller1,seller2)
   }
   
-  private def createBuyersActors(numberOfBuyers : Int, auctions:List[ActorRef]) : List[ActorRef] = {
-    return (1 to numberOfBuyers).map(num => context.actorOf(Props(new BuyerActor(auctions)),BUYER_ACTOR_PREFIX+num)).toList
+  private def createBuyersActors() : List[ActorRef] = {
+    val buyer1 = context.actorOf(Props(classOf[BuyerActor],150,Array("NotExisting","Benz")),"Buyer1")
+    val buyer2 = context.actorOf(Props(classOf[BuyerActor],200,Array("NotExisting1","Benz","Golf")),"Buyer2")
+    val buyer3 = context.actorOf(Props(classOf[BuyerActor],400,Array("Macbook_Air","Benz","Lenovo")),"Buyer3")
+    List(buyer1,buyer2,buyer3)
   }
+  
   
   
   // FSM
@@ -42,11 +53,14 @@ class AuctionManager extends Actor with FSM[AuctionManagerState, AuctionManagerD
   startWith(ManagerDisabled, Uninitialized)
   
   when(ManagerDisabled) {
-    case Event(startAuctionSystem(numberOfAuctions, numberOfBuyers), Uninitialized) => {
-      val auctions = createAuctionActors(numberOfAuctions)
-      val buyers = createBuyersActors(numberOfBuyers,auctions)
+    case Event(startAuctionSystem(), Uninitialized) => {
+
+      val auctionSearch = context.system.actorOf(Props[AuctionSearch],"auctionSearch")
+      val sellers = createSellersActors()
+      val buyers = createBuyersActors()
+      
       log.info(MANAGER_STARTING)
-      goto(ManagerStarted) using AuctionSystemData(auctions,buyers)
+      goto(ManagerStarted) using AuctionSystemData(sellers,Nil)
     }
   }
   
@@ -55,7 +69,7 @@ class AuctionManager extends Actor with FSM[AuctionManagerState, AuctionManagerD
       log.info(MANAGER_GOING_TO_STOP)
       goto(ManagerDisabled) using AuctionSystemData(Nil,Nil)
     }
-    case Event(startAuctionSystem(_,_), _) => {
+    case Event(startAuctionSystem(), _) => {
       log.info(MANAGER_ALREADY_STARTED)
       stay 
     }
@@ -83,7 +97,7 @@ class AuctionManager extends Actor with FSM[AuctionManagerState, AuctionManagerD
     }
   }
   
-  
+  initialize()
 }
 
 

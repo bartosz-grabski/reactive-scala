@@ -14,8 +14,12 @@ import akka.actor.ActorRef
 import messages.bidTimerExpired
 import messages.notifyWinner
 import messages.deleteTimerExpired
+import messages.notifySeller
+import messages.stopBidding
+import messages.notifyTopAnOffer
+import scala.concurrent.duration._
 
-class AuctionActor(auctionId:Int) extends Actor with FSM[AuctionState,AuctionData] with ActorLogging {
+class AuctionActor(seller:ActorRef) extends Actor with FSM[AuctionState,AuctionData] with ActorLogging {
   
   private val DELETE_TIMER_STARTED = "Delete timer started"
   private val BID_TIMER_STARTED = "Bid timer started"
@@ -31,22 +35,12 @@ class AuctionActor(auctionId:Int) extends Actor with FSM[AuctionState,AuctionDat
     
   private def startBidTimer(bidTimer:Int) {
     log.info(BID_TIMER_STARTED)
-    system.scheduler.scheduleOnce(Duration.create(bidTimer, TimeUnit.SECONDS), new Runnable {
-      override def run = {
-        log.info(BID_TIMER_EXPIRED)
-		self ! bidTimerExpired()
-      } 
-    })
+    system.scheduler.scheduleOnce(bidTimer seconds, self, bidTimerExpired())
   }
   
   private def startDeleteTimer(deleteTimer:Int) {
     log.info(DELETE_TIMER_STARTED)
-    system.scheduler.scheduleOnce(Duration.create(deleteTimer, TimeUnit.SECONDS), new Runnable {
-      override def run = {
-        self ! deleteTimerExpired()
-        log.info(DELETE_TIMER_EXPIRED)
-      } 
-    })
+    system.scheduler.scheduleOnce(deleteTimer seconds, self, deleteTimerExpired())
   }
   
   startWith(Undefined, Uninitialized);
@@ -78,30 +72,40 @@ class AuctionActor(auctionId:Int) extends Actor with FSM[AuctionState,AuctionDat
       log.info(DELETE_TIMER_EXPIRED)
       stay
     }
+    case Event(_,_) => {
+      sender ! stopBidding(self)
+      stay
+    }
   }
   
   when(Activated) {
     case Event(bid(newBid,newBuyer),AuctionBuyerBundle(buyer,bid,deleteTime)) => {
       if (newBid > bid && newBid > 0) {
-        log.info(s"${newBuyer.toString()} has beaten a bid with $newBid for auction $auctionId")
+        log.info(s"${newBuyer.toString()} has beaten a bid with $newBid for auction $self.path.name")
+        buyer ! notifyTopAnOffer(newBid,newBuyer,self)
     	stay using AuctionBuyerBundle(newBuyer,newBid,deleteTime)
       } else {
         stay
       }
     }
     case Event(bidTimerExpired(),AuctionBuyerBundle(buyer,price,deleteTime)) => {
-    	buyer ! notifyWinner(auctionId,price)
-    	startDeleteTimer(deleteTime)
-    	stay
-    }
-    case Event(deleteTimerExpired(),_) => {
+    	buyer ! notifyWinner(self.path.name,price)
+    	seller ! notifySeller(buyer)
     	goto(Sold)
     }
+    
   }
   
   when(Sold) {
+    case Event(deleteTimerExpired(),_) => {
+    	stay
+    }
+  }
+  
+  whenUnhandled {
     case Event(e,s) => {
-      //just ignore this event
+      sender ! "Undefined operation for current state"
+      log.error("Unhandled event caught" + e.toString);
       stay
     }
   }
@@ -112,7 +116,7 @@ class AuctionActor(auctionId:Int) extends Actor with FSM[AuctionState,AuctionDat
         case AuctionDataBundle(value,bidTime,deleteTime) => {
         	startBidTimer(bidTime)
         }
-        
+
       }
     	
     }
@@ -120,6 +124,9 @@ class AuctionActor(auctionId:Int) extends Actor with FSM[AuctionState,AuctionDat
     	nextStateData match {
     	  case AuctionDataBundle(value,bidTime,deleteTime) => {
     		startDeleteTimer(deleteTime)
+    	  }
+    	  case _ => {
+    		stop()
     	  }
     	}
     	
@@ -129,10 +136,13 @@ class AuctionActor(auctionId:Int) extends Actor with FSM[AuctionState,AuctionDat
     	  case AuctionBuyerBundle(buyer,bid,deleteTime) => {
     		startDeleteTimer(deleteTime)
     	  }
+    	  case _ => {
+    	    stop()
+    	  }
     	}
     }
   }
-  
+  initialize()
 }
 
 
