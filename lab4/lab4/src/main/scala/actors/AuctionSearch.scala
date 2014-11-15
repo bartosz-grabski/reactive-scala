@@ -25,23 +25,12 @@ class AuctionSearch extends Actor with FSM[AuctionSearchState, AuctionSearchData
 
   when(AuctionSearchStarted) {
 
-    case Event(registerAuction(name: String, seller:ActorRef), AuctionSearchBundle(auctions)) => {
-      log.info(s"Registering an auction with a name : $name")
-      try {
-        val auction = context.actorOf(Props(classOf[AuctionActor], seller), name)
-        auction ! startAuction(20,15,5)
-        stay using AuctionSearchBundle(auction :: auctions)
-      } catch {
-        case e: InvalidActorNameException => {
-          sender ! auctionNameInUse(name)
-          stay using AuctionSearchBundle(auctions)
-        }
-      }
-
+    case Event(registerAuction(auction:ActorRef, seller:ActorRef, name:String), AuctionSearchBundle(auctions)) => {
+      stay using AuctionSearchBundle(auction :: auctions)
     }
     case Event(findAuction(nameElement: String), AuctionSearchBundle(auctions)) => {
       log.info(s"Searching for an auction with a name : $nameElement")
-      val actor = auctions.find(x => x.path.name.contains(nameElement))
+      val actor = auctions.find(x => x.path.name.equals(nameElement))
       if (actor == None) {
         sender ! auctionNotFound(nameElement: String)
       } else {

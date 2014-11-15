@@ -22,6 +22,12 @@ import messages.startRegistering
 import messages.registerAuction
 import messages.registerAuction
 import messages.registerAuction
+import messages.notifyWinner
+import messages.notifyWinner
+import akka.testkit.TestFSMRef
+import akka.testkit.TestActorRef
+import com.typesafe.config.ConfigFactory
+import akka.testkit.EventFilter
 
 /**
  * Is this the proper way to do it ?
@@ -35,24 +41,30 @@ class ForwardActor(x:ActorRef) extends Actor {
 class ActorSystemSpec(_system: ActorSystem) extends TestKit(_system) with ImplicitSender
   with WordSpecLike with Matchers with BeforeAndAfterAll {
  
-  val seller1Auctions = List("Auction1","Auction2")
-  val seller2Auctions = List("Auc3","Auct4")
+  val seller1Auctions = Array("Auction1","Auction2")
+  val seller2Auctions = Array("Auc3","Auct4")
+  val buyerAuctions = Array("Auction1")
   val MAX_WAIT = 10000
   
-  val auctionProbe = TestProbe()
-  val auctionSearch : ActorRef = system.actorOf(Props(new ForwardActor(auctionProbe.ref)),"auctionSearch")
+  def this() = this(ActorSystem("MySpec", ConfigFactory.parseString("""
+		  akka.test.filter-leeway = 50s
+		  akka.loggers = ["akka.testkit.TestEventListener"]
+  """)))
   
-  def this() = this(ActorSystem("ActorSystemSpec"))
   
   override def afterAll {
     TestKit.shutdownActorSystem(system)
   }
   
-  "a seller" should {
-    "should register it's auctions" in {
-      val seller1 = system.actorOf(Props(classOf[SellerActor],seller1Auctions),"Seller1")
-      seller1 ! startRegistering()
-      
+  "a system" should {
+    "work ;p" in {
+      val auctionSearch = system.actorOf(Props(new AuctionSearch()),"auctionSearch")
+      val seller = system.actorOf(Props(new SellerActor("seller1",seller1Auctions)),"seller")
+      val buyer = TestActorRef(Props(new BuyerActor(100,buyerAuctions)))
+      val filter = EventFilter.info(pattern = "Winner of auction Auction1*",occurrences = 1)
+      filter intercept {
+        
+      }
     }
   }
 }

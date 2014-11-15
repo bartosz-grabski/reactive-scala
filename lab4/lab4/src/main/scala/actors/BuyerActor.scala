@@ -17,30 +17,35 @@ import messages.bidRandom
 import scala.collection.mutable.LinkedHashSet
 import messages.notifyTopAnOffer
 import messages.stopBidding
+import scala.compat.Platform
+import messages.perfInfo
+import helpers.Conf
 
 class BuyerActor(maxBid:Int,nameElements:Array[String]) extends Actor with ActorLogging {
  
   val bidTimes = 10
   val system = context.system
-  val auctionSearch = system.actorSelection("/*/auctionSearch")
+  val auctionSearch = system.actorSelection("/*/auctionMasterSearch")
+  val performanceActor = system.actorSelection("/*/performanceActor");
   var auctions = LinkedHashSet[ActorRef]()
   
-  private val SEEK_TIME = 10000
-  private val BID_TIME = 500
+  private final val BID_TIME = 1500
+  private val auctionTimes = collection.mutable.Map[String,Long](); //perhaps immutable ? :)
   import system.dispatcher
  
-  system.scheduler.scheduleOnce(SEEK_TIME milliseconds, self, startBidding())
+  system.scheduler.scheduleOnce(Conf.STARTUP_BUYER_MILL milliseconds, self, startBidding())
   
   def receive = {
     case startBidding() => {
       
+      for (i <- 0 until nameElements.length) {
+        val auctionNameOrPartialName = nameElements(i)
+        log.info(s"Find auction $auctionNameOrPartialName");
+        auctionTimes(auctionNameOrPartialName) = Platform.currentTime
+        auctionSearch ! findAuction(auctionNameOrPartialName) 
+      }
       
-      val auctionIndex = Random.nextInt(nameElements.length)
-      val auctionNameOrPartialName = nameElements(auctionIndex)
-      
-      log.info(s"Find auction $auctionNameOrPartialName");
-      auctionSearch ! findAuction(auctionNameOrPartialName)
-      system.scheduler.scheduleOnce(SEEK_TIME milliseconds, self, startBidding())
+
       system.scheduler.scheduleOnce(BID_TIME milliseconds, self, bidRandom())
       
     }
@@ -49,7 +54,10 @@ class BuyerActor(maxBid:Int,nameElements:Array[String]) extends Actor with Actor
     }
     case auctionFound(auction, nameElement) => {
       log.info(s"Found auction for $nameElement")
+      performanceActor ! perfInfo(Platform.currentTime - auctionTimes.get(nameElement).get)
+      auctionTimes.remove(nameElement);
       auctions = auctions + auction
+      
     }
     case auctionNotFound(nameElement) => {
       log.info(s"Auction not found for $nameElement")
@@ -57,8 +65,9 @@ class BuyerActor(maxBid:Int,nameElements:Array[String]) extends Actor with Actor
     case bidRandom() => {
       val bidValue = Random.nextInt(2000) % maxBid
       if (auctions.size > 0) {
-          log.info(s"Bidding auction");
-    	  auctions.toList(Random.nextInt(auctions.size)) ! bid(bidValue,self)
+          val auction = auctions.toList(Random.nextInt(auctions.size))
+          log.info(s"Bidding auction "+auction.path.name);
+    	  auction ! bid(bidValue,self)
       }
       system.scheduler.scheduleOnce(BID_TIME milliseconds, self, bidRandom())
     }
@@ -74,4 +83,5 @@ class BuyerActor(maxBid:Int,nameElements:Array[String]) extends Actor with Actor
       auctions.remove(auction)
     }
   }
+
 }

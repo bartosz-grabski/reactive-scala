@@ -11,34 +11,28 @@ import messages.startRegistering
 import messages.startRegistering
 import scala.concurrent.duration._
 import messages.auctionNameInUse
+import messages.startRegistering
 
 object SellerActor {
-  val STARTUP_DELAY_MILL = 3000 
+  val STARTUP_DELAY_MILL = 2000 
 }
 
-class SellerActor(name:String,titles:Array[String]) extends Actor with ActorLogging { 
+class SellerActor(name:String) extends Actor with ActorLogging { 
   
   
   val system = context.system
-  val auctionSearch = system.actorSelection("/*/auctionSearch")
+  val auctionSearch = system.actorSelection("/*/auctionMasterSearch")
   import system.dispatcher
-  
-  system.scheduler.scheduleOnce(SellerActor.STARTUP_DELAY_MILL milliseconds, self, startRegistering())
   
   def receive = {
     case notifySeller(winner) => {
       val winnerName = winner.path.name
       log.info(s"Seller $name's auction is finished. The winner is $winnerName")
     }
-    case startRegistering() => {
-        for (title <- titles) {
-        	log.info("Registering auction $title")
-        	auctionSearch ! registerAuction(title,self)
-        }
-    }
     case auctionNameInUse(name) => {
       log.info("Auction name in use")
     }
   }
+  
   
 }

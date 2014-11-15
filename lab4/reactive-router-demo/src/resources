@@ -1,8 +1,8 @@
 akka {
-  loglevel = "INFO"
+  loglevel = "DEBUG"
   actor {
     debug {
       receive = on
-    }
   }
+}
 }
