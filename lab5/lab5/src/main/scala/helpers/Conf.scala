@@ -1,0 +1,11 @@
+package helpers
+
+object Conf {
+  
+  val AUCTIONS = 20000
+  val STARTUP_BUYER_MILL = 10000
+  val PERF_DURATION_MILL = STARTUP_BUYER_MILL + 5000
+  val AUCTION_SEARCH_COUNT = 10
+  val PROXY_TIMEOUT_SEC = 5;
+
+}

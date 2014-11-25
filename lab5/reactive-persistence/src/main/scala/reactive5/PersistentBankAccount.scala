@@ -76,7 +76,7 @@ object PersistentBankAccountMain extends App {
 
   example ! Deposit(1)
   example ! Deposit(2)
-//example ! Snap // please uncomment and try!
+  example ! Snap // please uncomment and try!
   example ! Deposit(3)
   example ! Withdraw(3)
 
